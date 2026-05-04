@@ -10,17 +10,12 @@ for local or small deployments.
 
 ## Quick start
 
-Semaphore's Docker Hub page provides a minimal example that runs on port `3000`.
+Use the local Compose stack in [docker-compose.yml](docker-compose.yml) together
+with [`.env.example`](.env.example):
 
-```bash
-docker run -p 3000:3000 --name semaphore \
-	-e SEMAPHORE_DB_DIALECT=bolt \
-	-e SEMAPHORE_ADMIN=admin \
-	-e SEMAPHORE_ADMIN_PASSWORD=changeme \
-	-e SEMAPHORE_ADMIN_NAME=Admin \
-	-e SEMAPHORE_ADMIN_EMAIL=admin@localhost \
-	-d semaphoreui/semaphore:latest
-```
+1. Copy [`.env.example`](.env.example) to `.env`.
+2. Keep `SEMAPHORE_DB_DIALECT=bolt` for the simplest first run.
+3. Start the stack with `docker compose up -d` from this directory.
 
 Open `http://localhost:3000` after the container starts.
 
@@ -53,4 +48,6 @@ services:
 - GitHub: https://github.com/semaphoreui/semaphore
 - Docker Hub: https://hub.docker.com/r/semaphoreui/semaphore
 - Installation docs: https://docs.ansible-semaphore.com/administration-guide/installation
+- Local Compose file: [docker-compose.yml](docker-compose.yml)
+- Example env file: [`.env.example`](.env.example)
 

@@ -9,24 +9,20 @@ Fleet server, but it still needs backing services such as MySQL and Redis.
 
 ## Quick start
 
-The fastest way to get started is with Fleet's official Docker Compose guide:
+Use the local Compose stack in [docker-compose.yml](docker-compose.yml) together
+with [`.env.example`](.env.example):
 
-1. Create a deployment directory.
-2. Download the upstream `docker-compose.yml` and `.env` template.
-3. Set `MYSQL_ROOT_PASSWORD`, `MYSQL_PASSWORD`, and `FLEET_SERVER_PRIVATE_KEY`.
-4. Start the stack with `docker compose up -d`.
+1. Copy [`.env.example`](.env.example) to `.env`.
+2. Replace the placeholder passwords and server key.
+3. Start the stack with `docker compose up -d` from this directory.
 
-Fleet listens on port `1337` by default in the Compose guide. MySQL uses `3306`
-and Redis uses `6379`.
+Fleet listens on port `1337`, MySQL uses `3306`, and Redis uses `6379`.
 
 ## Example
 
 ```bash
-mkdir fleet-deployment
-cd fleet-deployment
-curl -O https://raw.githubusercontent.com/fleetdm/fleet/refs/heads/main/docs/solutions/docker-compose/docker-compose.yml
-curl -O https://raw.githubusercontent.com/fleetdm/fleet/refs/heads/main/docs/solutions/docker-compose/env.example
-cp env.example .env
+cd fleet
+cp .env.example .env
 openssl rand -base64 32
 docker compose up -d
 ```
@@ -43,4 +39,6 @@ docker compose up -d
 - GitHub: https://github.com/fleetdm/fleet
 - Docker Hub: https://hub.docker.com/r/fleetdm/fleet
 - Docker Compose guide: https://fleetdm.com/guides/deploy-fleet-on-docker-compose
+- Local Compose file: [docker-compose.yml](docker-compose.yml)
+- Example env file: [`.env.example`](.env.example)
 

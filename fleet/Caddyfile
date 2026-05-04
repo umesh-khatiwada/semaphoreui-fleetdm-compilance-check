@@ -1,0 +1,8 @@
+{
+    auto_https off
+}
+
+fleet.com {
+    tls /etc/caddy/fleet-server.crt /etc/caddy/fleet-server.key
+    reverse_proxy fleet:8080
+}

@@ -8,17 +8,21 @@ A Docker-based deployment workspace for two complementary DevOps and device mana
 
 ```
 .
-├── fleet/                    # Fleet server stack
-│   ├── docker-compose.yml   # Full stack: MySQL + Redis + Fleet
-│   ├── .env                 # Configuration (ready to use)
-│   ├── .env.example         # Configuration template
-│   └── README.md            # Fleet-specific docs
-├── semaphoreui/             # Semaphore UI stack
-│   ├── docker-compose.yml   # Semaphore container with bolt DB
-│   ├── .env                 # Configuration (ready to use)
-│   ├── .env.example         # Configuration template
-│   └── README.md            # Semaphore-specific docs
-└── README.md                # This file
+├── fleet/                     # Fleet server stack
+│   ├── docker-compose.yml     # MySQL + Redis + Fleet + Caddy (TLS reverse proxy)
+│   ├── Caddyfile              # Caddy config (serves fleet.com with the bundled certificate)
+│   ├── .env.example           # Configuration template
+│   └── README.md
+├── semaphoreui/               # Semaphore UI stack
+│   ├── docker-compose.yml     # Semaphore container with bolt DB
+│   ├── .env.example           # Configuration template
+│   └── README.md
+├── dependencytrack/           # Dependency-Track stack (API server, frontend, PostgreSQL)
+│   ├── docker-compose.yml
+│   ├── docs/dependencytrack-docker-guide.md
+│   └── README.md
+├── SETUP.md                   # Notes on enrolling an Orbit agent with Fleet (known issues)
+└── README.md                  # This file
 ```
 
 ## Quick Start
@@ -28,6 +32,15 @@ A Docker-based deployment workspace for two complementary DevOps and device mana
 - Docker Engine (v20.10+)
 - Docker Compose (v2.0+)
 - ~2GB free disk space
+
+Create the `.env` files first (they are not committed):
+
+```bash
+cp fleet/.env.example fleet/.env
+cp semaphoreui/.env.example semaphoreui/.env
+# Edit both files: replace every placeholder password and the Fleet server key.
+# A Fleet key can be generated with: openssl rand -base64 32
+```
 
 ### Option 1: Run Both Services
 
@@ -72,6 +85,11 @@ docker compose up -d
 **Access**:
 - URL: `http://localhost:1337`
 - First launch opens setup wizard
+- The compose file also starts a Caddy proxy (ports 9080/9443) that terminates TLS for host `fleet.com` using `fleet/fleet-server.crt` and `fleet/fleet-server.key`. See Security Notes below.
+
+### Dependency-Track (ports 8080 frontend, 8081 API)
+
+Software Composition Analysis platform (SBOMs, vulnerabilities, policies) using `dependencytrack/apiserver`, `dependencytrack/frontend` and `postgres:17-alpine`. See [dependencytrack/README.md](dependencytrack/README.md) and [dependencytrack/docs/dependencytrack-docker-guide.md](dependencytrack/docs/dependencytrack-docker-guide.md). Start it with `cd dependencytrack && docker compose up -d`.
 
 **Configuration**: See [fleet/README.md](fleet/README.md)
 
@@ -84,31 +102,40 @@ docker compose up -d
 
 **Access**:
 - URL: `http://localhost:3000`
-- Default login: `admin` / `semaphore_secure_pwd_2026`
+- Login: user `admin` (`SEMAPHORE_ADMIN`) with the password you set in `semaphoreui/.env`.
+  Note: `semaphoreui/docker-compose.yml` currently hardcodes `SEMAPHORE_ADMIN_PASSWORD` to a placeholder (`changeme`) instead of reading `.env`; change it before use. TODO: wire the compose file to `.env`.
 
 **Configuration**: See [semaphoreui/README.md](semaphoreui/README.md)
 
 ## Environment Configuration
 
-Both services have pre-configured `.env` files ready to use. To customize:
+Copy each `.env.example` to `.env` and set your own values. Do not commit `.env` files or real secrets.
 
-**Fleet** ([fleet/.env](fleet/.env)):
-```env
-MYSQL_ROOT_PASSWORD=fleet_root_secure_pwd_2026
-MYSQL_PASSWORD=fleet_user_secure_pwd_2026
-FLEET_SERVER_PRIVATE_KEY=AptYc0XKAcSP9MHCZatEEpkdiOapTHHRAqqavQ3wD5Q=
-FLEET_SERVER_TLS=false
-FLEET_LICENSE_KEY=
-```
+**Fleet** (`fleet/.env`):
 
-**Semaphore UI** ([semaphoreui/.env](semaphoreui/.env)):
-```env
-SEMAPHORE_DB_DIALECT=bolt
-SEMAPHORE_ADMIN=admin
-SEMAPHORE_ADMIN_PASSWORD=semaphore_secure_pwd_2026
-SEMAPHORE_ADMIN_NAME=Admin
-SEMAPHORE_ADMIN_EMAIL=admin@localhost
-```
+| Variable | Description |
+|----------|-------------|
+| `MYSQL_ROOT_PASSWORD` | MySQL root password |
+| `MYSQL_PASSWORD` | Password of the `fleet` MySQL user |
+| `FLEET_SERVER_PRIVATE_KEY` | Fleet server private key (generate with `openssl rand -base64 32`) |
+| `FLEET_SERVER_TLS` | `true`/`false`, depending on where TLS is terminated (template default `false`) |
+| `FLEET_LICENSE_KEY` | Optional Fleet Premium license |
+
+**Semaphore UI** (`semaphoreui/.env`):
+
+| Variable | Description |
+|----------|-------------|
+| `SEMAPHORE_DB_DIALECT` | Database backend (`bolt`) |
+| `SEMAPHORE_ADMIN` | Admin username |
+| `SEMAPHORE_ADMIN_PASSWORD` | Admin password (choose a strong one) |
+| `SEMAPHORE_ADMIN_NAME` | Admin display name |
+| `SEMAPHORE_ADMIN_EMAIL` | Admin email |
+
+## Security Notes
+
+- Replace all placeholder passwords before exposing any service.
+- `fleet/fleet-server.crt` and `fleet/fleet-server.key` (a self-signed pair for `fleet.com`) are committed so the Caddy proxy can start. Treat them as demo material and generate your own for real use.
+- Images are pulled with `latest` tags in several stacks; pin versions for reproducible deployments.
 
 ## Common Operations
 
@@ -159,6 +186,8 @@ cd semaphoreui && docker compose restart
 | Fleet | 1337 | http://localhost:1337 |
 | Fleet MySQL | 3306 | localhost:3306 |
 | Fleet Redis | 6379 | localhost:6379 |
+| Fleet Caddy (HTTP / HTTPS) | 9080 / 9443 | host `fleet.com` |
+| Dependency-Track frontend / API | 8080 / 8081 | http://localhost:8080 |
 | Semaphore UI | 3000 | http://localhost:3000 |
 
 ## Troubleshooting
@@ -181,7 +210,7 @@ cd semaphoreui && docker compose restart
 
 For Fleet:
 - Verify MySQL is healthy: `docker ps | grep mysql`
-- Check password in `.env` file matches compose file
+- Check that the passwords in `.env` are set (the compose file reads them from `.env`)
 - Wait 30+ seconds for MySQL to be ready on first start
 
 ### Container already running error
@@ -194,6 +223,7 @@ docker compose up -d
 
 ## Documentation
 
+- **Compliance/Orbit notes**: [SETUP.md](SETUP.md) - Orbit enrollment status and known TLS/HTTP issue
 - **Fleet**: [fleet/README.md](fleet/README.md) - Detailed Fleet setup and config
 - **Semaphore**: [semaphoreui/README.md](semaphoreui/README.md) - Detailed Semaphore setup and config
 - **Fleet docs**: https://fleetdm.com/docs
@@ -213,6 +243,11 @@ docker compose up -d
 
 ## License
 
-This workspace configuration is provided as-is. See individual services for their licenses:
+The workspace configuration in this repository is released under the [MIT License](LICENSE). The services it deploys have their own licenses:
 - Fleet: https://github.com/fleetdm/fleet/blob/main/LICENSE
 - Semaphore: https://github.com/semaphoreui/semaphore/blob/develop/LICENSE
+- Dependency-Track: https://github.com/DependencyTrack/dependency-track/blob/master/LICENSE.txt
+
+## Author
+
+Umesh Khatiwada - [github.com/umesh-khatiwada](https://github.com/umesh-khatiwada)
